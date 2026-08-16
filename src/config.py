@@ -1,0 +1,39 @@
+from dataclasses import dataclass
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+@dataclass(frozen=True)  # make an object that can't be changed after creation
+class Config:
+    csv_file: Path = ROOT / "csv" / "gaia_dr3_data.csv"
+    out_dir: Path = ROOT / "results"
+
+    # SI constants - CODATA 2018 sigma, IAU 2015 nominal solar values
+    sigma: float = 5.670374419e-8      # W m^-2 K^-4 - CODATA 2018 - exact since the 2019 SI redefinition
+    L_sun: float = 3.828e26            # W - IAU 2015 resolution B3 nominal
+    R_sun: float = 6.957e8             # m - IAU 2015 resolution B3 nominal
+    AU: float = 1.495978707e11         # m - IAU 2012 resolution B2 - exact by definition
+    T_sun: float = 5772.0              # K - IAU 2015 resolution B3 nominal - only feeds the Sun/Earth anchors
+
+    # quality cuts
+    min_parallax_over_error: float = 20.0        # distance good to 5% (L goes as d^2 and a goes as sqrt(L) so the edges land within 5%) || TODO: tune
+    max_ruwe: float = 1.4                        # isolated single stars (Lindegren 2018 cut - above it the fit is likely an unresolved binary) || TODO: tune
+    max_radius_rsun: float = 2.0                 # drops giants || TODO: tune
+    teff_min: float = 2800.0                     # M-stars
+    teff_max: float = 8000.0                     # F-stars
+
+    # liquid-water thresholds at 1 atm
+    T_hot: float = 373.15                        # 100°C
+    T_cold: float = 273.15                       # 0°C
+
+    # atmosphere scenarios (low/mid/high albedo x weak/mid/strong greenhouse)
+    A_levels: tuple = (0.10, 0.30, 0.50)
+    eps_levels: tuple = (1.00, 0.60, 0.30)
+
+    # reference - A is Earth's Bond albedo, eps=0.6 reproduces Earth's 288 K surface
+    A_ref: float = 0.30
+    eps_ref: float = 0.60
+
+
+CONFIG = Config()
