@@ -34,6 +34,16 @@ class Sample:
     def star_count(self) -> int:
         return len(self.teff)
 
+    @property
+    def radius_residual(self) -> np.ndarray:
+        """
+        returns the fractional gap between our R_* and the radius Gaia publishes itself
+        (0.01 would mean ours is 1% larger)
+
+        (Gaia derives radius_flame through a completely separate pipeline)
+        """
+        return self.r_rsun / self.r_gaia_rsun - 1.0
+
 
 def load_gaia(config: Config) -> Sample:
     """
