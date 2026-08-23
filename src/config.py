@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -34,6 +36,10 @@ class Config:
     # reference - A is Earth's Bond albedo, eps=0.6 reproduces Earth's 288 K surface
     A_ref: float = 0.30
     eps_ref: float = 0.60
+
+    # fine sweeps for the sensitivity curves (part 4)
+    A_sweep: np.ndarray = field(default_factory=lambda: np.linspace(0.00, 0.80, 81))
+    eps_sweep: np.ndarray = field(default_factory=lambda: np.linspace(0.20, 1.00, 81))
 
 
 CONFIG = Config()
