@@ -1,0 +1,99 @@
+==============================================================================
+HABITABLE ZONE SENSITIVITY TO ALBEDO AND GREENHOUSE PARAMETER
+Gaia DR3 main-sequence sample - Python implementation - 2026-08-24 18:20
+==============================================================================
+
+1. SAMPLE (part 1)
+------------------------------------------------------------------------------
+  rows read from catalogue          3000
+  removed - non-finite              0
+  removed - non-positive L/Teff/R   0
+  removed - astrometry cuts         0   (plx/err >= 20, RUWE <= 1.4)
+  removed - outside Teff window     0   (2800 - 8000 K)
+  removed - giants and subgiants    292   (R > 2 Rsun)
+  RETAINED                          2708
+
+  Teff  3018 - 7452 K      L  0.0029 - 9.780 Lsun
+    F  n= 420   median Teff  6284 K   median L   3.0116 Lsun
+    G  n= 946   median Teff  5676 K   median L   1.2397 Lsun
+    K  n= 996   median Teff  4742 K   median L   0.2897 Lsun
+    M  n= 346   median Teff  3539 K   median L   0.0317 Lsun
+
+  R* rebuilt from L and Teff vs Gaia radius_flame:
+    median -0.0185 %   p95 |resid| 2.49 %   -> the Stefan-Boltzmann step is sound
+
+2. MODEL AND SCENARIOS (part 2)
+------------------------------------------------------------------------------
+  Tp(a) = Teff * ((1-A)/(4 eps))^(1/4) * (R*/a)^(1/2)
+  a(T)  = R*   * ((1-A)/(4 eps))^(1/2) * (Teff/T)^2
+  thresholds  T_hot = 373.15 K   T_cold = 273.15 K
+  reference   A = 0.30   eps = 0.60  (gives Earth 289.3 K at 1 AU)
+
+3-4. BOUNDARIES AND SENSITIVITY (parts 3-4)
+------------------------------------------------------------------------------
+  scenario                   A   eps |  med a_in med a_out |  rel shift |  med |da_in|
+  midA_midGH_REF          0.30  0.60 |    0.4921    0.9184 |     +0.00% |    0.0000 AU
+  lowA_weakGH             0.10  1.00 |    0.4322    0.8066 |    -12.17% |    0.0599 AU
+  lowA_midGH              0.10  0.60 |    0.5580    1.0413 |    +13.39% |    0.0659 AU
+  lowA_strongGH           0.10  0.30 |    0.7891    1.4727 |    +60.36% |    0.2970 AU
+  midA_weakGH             0.30  1.00 |    0.3812    0.7114 |    -22.54% |    0.1109 AU
+  midA_strongGH           0.30  0.30 |    0.6959    1.2988 |    +41.42% |    0.2038 AU
+  highA_weakGH            0.50  1.00 |    0.3222    0.6012 |    -34.53% |    0.1699 AU
+  highA_midGH             0.50  0.60 |    0.4159    0.7762 |    -15.48% |    0.0762 AU
+  highA_strongGH          0.50  0.30 |    0.5882    1.0977 |    +19.52% |    0.0961 AU
+
+  largest shift : lowA_strongGH  +60.36 %
+  smallest shift: lowA_weakGH  -12.17 %
+
+  a_in and a_out always move by the SAME percentage, so the zone dilates without
+  changing shape: a_out/a_in = (T_hot/T_cold)^2 = 1.866227 for every star and scenario.
+
+5. DOES SENSITIVITY DEPEND ON THE STAR (part 5)
+------------------------------------------------------------------------------
+  Substituting R* = sqrt(L/(4 pi sigma Teff^4)) into a(T) cancels Teff exactly:
+      a(T) = sqrt(L/(4 pi sigma)) * sqrt((1-A)/(4 eps)) / T^2
+  verified numerically to 6.7e-16 relative.
+
+  RELATIVE sensitivity: identical for all 2708 stars.
+    star-to-star spread of da/a_ref, worst scenario: 1.11e-15  (machine precision)
+    -> no dependence on Teff, on L, or on spectral class. none.
+
+  ABSOLUTE sensitivity: depends on the star, through sqrt(L) alone.
+    log-log slope of a_in against L = 0.500000000000  (exact 1/2, max resid 6.7e-16)
+    median |da_in| for the strong-greenhouse scenario, by class:
+      F  0.4320 AU   (9.7x the M-dwarf value)
+      G  0.2771 AU   (6.3x the M-dwarf value)
+      K  0.1340 AU   (3.0x the M-dwarf value)
+      M  0.0443 AU   (1.0x the M-dwarf value)
+
+  The apparent Teff trend is luminosity in disguise:
+    corr(a_in, Teff) over the sample      +0.9030      <- looks like a real trend
+    corr(log a_in, log L)                 +1.00000000
+    std of log a_in after removing log L   1.73e-16   <- nothing left for Teff
+    std of Teff after removing log L       248.7 K      <- yet Teff varies freely
+    13 real Gaia stars within 1% in L span 932 K in Teff,
+      and their a_in agree to 0.65% - the 1% L spread, not the Teff spread.
+    control: L fixed at 1 Lsun, Teff 3200/5772/7400 K -> a_in identical to 2.2e-16 AU
+
+6. WHAT THIS MEANS, AND WHERE IT STOPS (part 6)
+------------------------------------------------------------------------------
+  * A and eps move both boundaries by one common factor sqrt((1-A)/(4 eps)).
+    Over the scenario set that factor runs from -35% to +60% of the reference.
+  * eps is the stronger lever: dropping eps 0.60 -> 0.30 gives +41.4%, while
+    raising A 0.30 -> 0.50 gives only -15.5%.
+  * Answer to the research question: the sensitivity of the boundaries to A and eps
+    does NOT depend on the type of star in relative terms. In absolute terms a bright
+    F star's boundary moves ~10x further than an M dwarf's for the same atmosphere
+    change, but that factor is sqrt(L_F/L_M), not a Teff effect.
+  * Limits: this is a grey 0-D model. Because A and eps are taken as constants that
+    do not depend on wavelength, the star's spectrum cannot influence the result, and
+    the Teff cancellation above is a direct consequence of that choice. A real M dwarf
+    planet has a lower albedo against red light and different H2O/CO2 absorption, so a
+    spectrally resolved model WOULD produce a Teff dependence. The clean null result
+    here is a statement about the model, and that is what makes it a useful baseline.
+
+7. VERIFICATION
+------------------------------------------------------------------------------
+  external anchors: solar constant 1361.2 W/m2 | Earth eq. temp 254.6 K | Earth surface 289.3 K
+  closed form reproduced by Brent root-finding and by grid interpolation independently
+==============================================================================

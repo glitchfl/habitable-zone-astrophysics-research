@@ -102,7 +102,7 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
              f"{datetime.now():%Y-%m-%d %H:%M}")
     add_line(divider)
 
-    add_line("\n1. SAMPLE (part 1)\n" + "-" * 78)
+    add_line("\n1. SAMPLE\n" + "-" * 78)
     cuts = sample.cuts
     add_line(f"  rows read from catalogue          {cuts['read']}")
     add_line(f"  removed - non-finite              {cuts['non_finite']}")
@@ -126,14 +126,14 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
              f"p95 |resid| {100*np.percentile(np.abs(sample.radius_residual), 95):.2f} %"
              "   -> the Stefan-Boltzmann step is sound")
 
-    add_line("\n2. MODEL AND SCENARIOS (part 2)\n" + "-" * 78)
+    add_line("\n2. MODEL AND SCENARIOS\n" + "-" * 78)
     add_line("  Tp(a) = Teff * ((1-A)/(4 eps))^(1/4) * (R*/a)^(1/2)")
     add_line("  a(T)  = R*   * ((1-A)/(4 eps))^(1/2) * (Teff/T)^2")
     add_line(f"  thresholds  T_hot = {config.T_hot:.2f} K   T_cold = {config.T_cold:.2f} K")
     add_line(f"  reference   A = {config.A_ref:.2f}   eps = {config.eps_ref:.2f}  "
              f"(gives Earth {earth_surface_temp:.1f} K at 1 AU)")
 
-    add_line("\n3-4. BOUNDARIES AND SENSITIVITY (parts 3-4)\n" + "-" * 78)
+    add_line("\n3-4. BOUNDARIES AND SENSITIVITY\n" + "-" * 78)
     add_line(f"  {'scenario':<22} {'A':>5} {'eps':>5} | {'med a_in':>9} {'med a_out':>9} | "
              f"{'rel shift':>10} | {'med |da_in|':>12}")
     for scenario_index, scenario_name in enumerate(scenarios.names):
@@ -157,7 +157,7 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
     add_line(f"  changing shape: a_out/a_in = (T_hot/T_cold)^2 = "
              f"{(config.T_hot/config.T_cold)**2:.6f} for every star and scenario.")
 
-    add_line("\n5. DOES SENSITIVITY DEPEND ON THE STAR (part 5)\n" + "-" * 78)
+    add_line("\n5. DOES SENSITIVITY DEPEND ON THE STAR\n" + "-" * 78)
     add_line("  Substituting R* = sqrt(L/(4 pi sigma Teff^4)) into a(T) cancels Teff exactly:")
     add_line("      a(T) = sqrt(L/(4 pi sigma)) * sqrt((1-A)/(4 eps)) / T^2")
     add_line(f"  verified numerically to {analysis.collapse_residual:.1e} relative.\n")
@@ -198,7 +198,7 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
     high_albedo_factor = np.sqrt((1 - 0.50) / (4 * config.eps_ref))
     f_star_shift = analysis.per_class["F"]["median_abs_inner_shift"][strong_greenhouse]
 
-    add_line("\n6. WHAT THIS MEANS, AND WHERE IT STOPS (part 6)\n" + "-" * 78)
+    add_line("\n6. WHAT THIS MEANS, AND WHERE IT STOPS)\n" + "-" * 78)
     add_line("  * A and eps move both boundaries by one common factor sqrt((1-A)/(4 eps)).")
     add_line(f"    Over the scenario set that factor runs from "
              f"{100*sensitivity.predicted_shift.min():+.0f}%"
