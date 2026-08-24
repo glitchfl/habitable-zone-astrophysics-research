@@ -198,7 +198,7 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
     high_albedo_factor = np.sqrt((1 - 0.50) / (4 * config.eps_ref))
     f_star_shift = analysis.per_class["F"]["median_abs_inner_shift"][strong_greenhouse]
 
-    add_line("\n6. WHAT THIS MEANS, AND WHERE IT STOPS)\n" + "-" * 78)
+    add_line("\n6. WHAT THIS MEANS, AND WHERE IT STOPS\n" + "-" * 78)
     add_line("  * A and eps move both boundaries by one common factor sqrt((1-A)/(4 eps)).")
     add_line(f"    Over the scenario set that factor runs from "
              f"{100*sensitivity.predicted_shift.min():+.0f}%"
@@ -224,7 +224,6 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
     add_line(f"  external anchors: solar constant {stellar_flux(config.L_sun, config.AU):.1f} W/m2"
              f" | Earth eq. temp {earth_equilibrium_temp:.1f} K"
              f" | Earth surface {earth_surface_temp:.1f} K")
-    add_line("  closed form reproduced by Brent root-finding and by grid interpolation independently")
     add_line(divider)
 
     config.out_dir.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,80 @@
+-- gaia dr3 sample for the habitable-zone model
+-- run at https://gea.esac.esa.int/archive/
+
+SELECT TOP 750
+    gs.source_id AS "SOURCE_ID",
+    ap.teff_gspphot,
+    ap.lum_flame,
+    ap.radius_flame,
+    gs.parallax_over_error,
+    gs.ruwe,
+    'M (3000-3900)' AS spectral
+FROM gaiadr3.gaia_source AS gs
+JOIN gaiadr3.astrophysical_parameters AS ap ON ap.source_id = gs.source_id
+WHERE gs.random_index BETWEEN 0 AND 420000
+    AND ap.teff_gspphot >= 3000 AND ap.teff_gspphot < 3900
+    AND ap.lum_flame IS NOT NULL AND ap.lum_flame > 0
+    AND ap.radius_flame IS NOT NULL AND ap.radius_flame > 0
+    AND gs.parallax_over_error > 20
+    AND gs.ruwe < 1.4
+ORDER BY gs.random_index
+
+UNION ALL
+
+SELECT TOP 750
+    gs.source_id AS "SOURCE_ID",
+    ap.teff_gspphot,
+    ap.lum_flame,
+    ap.radius_flame,
+    gs.parallax_over_error,
+    gs.ruwe,
+    'K (3900-5300)' AS spectral
+FROM gaiadr3.gaia_source AS gs
+JOIN gaiadr3.astrophysical_parameters AS ap ON ap.source_id = gs.source_id
+WHERE gs.random_index BETWEEN 0 AND 119000
+    AND ap.teff_gspphot >= 3900 AND ap.teff_gspphot < 5300
+    AND ap.lum_flame IS NOT NULL AND ap.lum_flame > 0
+    AND ap.radius_flame IS NOT NULL AND ap.radius_flame > 0
+    AND gs.parallax_over_error > 20
+    AND gs.ruwe < 1.4
+ORDER BY gs.random_index
+
+UNION ALL
+
+SELECT TOP 750
+    gs.source_id AS "SOURCE_ID",
+    ap.teff_gspphot,
+    ap.lum_flame,
+    ap.radius_flame,
+    gs.parallax_over_error,
+    gs.ruwe,
+    'G (5300-6000)' AS spectral
+FROM gaiadr3.gaia_source AS gs
+JOIN gaiadr3.astrophysical_parameters AS ap ON ap.source_id = gs.source_id
+WHERE gs.random_index BETWEEN 0 AND 150000
+    AND ap.teff_gspphot >= 5300 AND ap.teff_gspphot < 6000
+    AND ap.lum_flame IS NOT NULL AND ap.lum_flame > 0
+    AND ap.radius_flame IS NOT NULL AND ap.radius_flame > 0
+    AND gs.parallax_over_error > 20
+    AND gs.ruwe < 1.4
+ORDER BY gs.random_index
+
+UNION ALL
+
+SELECT TOP 750
+    gs.source_id AS "SOURCE_ID",
+    ap.teff_gspphot,
+    ap.lum_flame,
+    ap.radius_flame,
+    gs.parallax_over_error,
+    gs.ruwe,
+    'F (6000-7500)' AS spectral
+FROM gaiadr3.gaia_source AS gs
+JOIN gaiadr3.astrophysical_parameters AS ap ON ap.source_id = gs.source_id
+WHERE gs.random_index BETWEEN 0 AND 327000
+    AND ap.teff_gspphot >= 6000 AND ap.teff_gspphot <= 7500
+    AND ap.lum_flame IS NOT NULL AND ap.lum_flame > 0
+    AND ap.radius_flame IS NOT NULL AND ap.radius_flame > 0
+    AND gs.parallax_over_error > 20
+    AND gs.ruwe < 1.4
+ORDER BY gs.random_index
