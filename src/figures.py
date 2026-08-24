@@ -60,10 +60,10 @@ def _build_sweeps(config: Config) -> tuple[_Sweep, _Sweep]:
 
 
 def _save(figure, config: Config, filename: str) -> None:
-    config.out_dir.mkdir(parents=True, exist_ok=True)
-    figure.savefig(config.out_dir / filename)
+    config.figures_dir.mkdir(parents=True, exist_ok=True)
+    figure.savefig(config.figures_dir / filename)
     plt.close(figure)
-    print(f"  wrote {filename}")
+    print(f"  wrote {config.figures_dir.name}/{filename}")
 
 
 def _representative_stars(sample: Sample) -> dict[str, int]:

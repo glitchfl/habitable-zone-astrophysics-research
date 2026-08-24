@@ -77,15 +77,15 @@ def class_table(analysis: Analysis, scenarios: Scenarios) -> pd.DataFrame:
 
 
 def write_tables(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, sensitivity: Sensitivity, analysis: Analysis, config: Config) -> None:
-    config.out_dir.mkdir(parents=True, exist_ok=True)
+    config.tables_dir.mkdir(parents=True, exist_ok=True)
     for filename, table, number_format in [
         ("sample_stars.csv", star_table(sample), "%.8g"),
         ("hz_results.csv", long_table(sample, scenarios, boundaries, sensitivity), "%.8g"),
         ("scenario_summary.csv", scenario_table(scenarios, boundaries, sensitivity), "%.8g"),
         ("class_summary.csv", class_table(analysis, scenarios), "%.8g"),
     ]:
-        table.to_csv(config.out_dir / filename, index=False, float_format=number_format)
-        print(f"  wrote {filename}  ({len(table)} rows)")
+        table.to_csv(config.tables_dir / filename, index=False, float_format=number_format)
+        print(f"  wrote {config.tables_dir.name}/{filename}  ({len(table)} rows)")
 
 
 def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, sensitivity: Sensitivity, analysis: Analysis, config: Config) -> None:
@@ -227,6 +227,7 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
     add_line("  closed form reproduced by Brent root-finding and by grid interpolation independently")
     add_line(divider)
 
+    config.out_dir.mkdir(parents=True, exist_ok=True)
     report_path = config.out_dir / "summary_report.txt"
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("  wrote summary_report.txt")

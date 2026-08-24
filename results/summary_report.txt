@@ -1,9 +1,9 @@
 ==============================================================================
 HABITABLE ZONE SENSITIVITY TO ALBEDO AND GREENHOUSE PARAMETER
-Gaia DR3 main-sequence sample - Python implementation - 2026-08-24 18:20
+Gaia DR3 main-sequence sample - Python implementation - 2026-08-25 09:08
 ==============================================================================
 
-1. SAMPLE (part 1)
+1. SAMPLE
 ------------------------------------------------------------------------------
   rows read from catalogue          3000
   removed - non-finite              0
@@ -22,14 +22,14 @@ Gaia DR3 main-sequence sample - Python implementation - 2026-08-24 18:20
   R* rebuilt from L and Teff vs Gaia radius_flame:
     median -0.0185 %   p95 |resid| 2.49 %   -> the Stefan-Boltzmann step is sound
 
-2. MODEL AND SCENARIOS (part 2)
+2. MODEL AND SCENARIOS
 ------------------------------------------------------------------------------
   Tp(a) = Teff * ((1-A)/(4 eps))^(1/4) * (R*/a)^(1/2)
   a(T)  = R*   * ((1-A)/(4 eps))^(1/2) * (Teff/T)^2
   thresholds  T_hot = 373.15 K   T_cold = 273.15 K
   reference   A = 0.30   eps = 0.60  (gives Earth 289.3 K at 1 AU)
 
-3-4. BOUNDARIES AND SENSITIVITY (parts 3-4)
+3-4. BOUNDARIES AND SENSITIVITY
 ------------------------------------------------------------------------------
   scenario                   A   eps |  med a_in med a_out |  rel shift |  med |da_in|
   midA_midGH_REF          0.30  0.60 |    0.4921    0.9184 |     +0.00% |    0.0000 AU
@@ -48,7 +48,7 @@ Gaia DR3 main-sequence sample - Python implementation - 2026-08-24 18:20
   a_in and a_out always move by the SAME percentage, so the zone dilates without
   changing shape: a_out/a_in = (T_hot/T_cold)^2 = 1.866227 for every star and scenario.
 
-5. DOES SENSITIVITY DEPEND ON THE STAR (part 5)
+5. DOES SENSITIVITY DEPEND ON THE STAR
 ------------------------------------------------------------------------------
   Substituting R* = sqrt(L/(4 pi sigma Teff^4)) into a(T) cancels Teff exactly:
       a(T) = sqrt(L/(4 pi sigma)) * sqrt((1-A)/(4 eps)) / T^2
@@ -75,7 +75,7 @@ Gaia DR3 main-sequence sample - Python implementation - 2026-08-24 18:20
       and their a_in agree to 0.65% - the 1% L spread, not the Teff spread.
     control: L fixed at 1 Lsun, Teff 3200/5772/7400 K -> a_in identical to 2.2e-16 AU
 
-6. WHAT THIS MEANS, AND WHERE IT STOPS (part 6)
+6. WHAT THIS MEANS, AND WHERE IT STOPS)
 ------------------------------------------------------------------------------
   * A and eps move both boundaries by one common factor sqrt((1-A)/(4 eps)).
     Over the scenario set that factor runs from -35% to +60% of the reference.

@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parent.parent
 class Config:
     csv_file: Path = ROOT / "csv" / "gaia_dr3_data.csv"
     out_dir: Path = ROOT / "results"
+    figures_dir: Path = ROOT / "results" / "figures"
+    tables_dir: Path = ROOT / "results" / "tables"
 
     # SI constants - CODATA 2018 sigma, IAU 2015 nominal solar values
     sigma: float = 5.670374419e-8      # W m^-2 K^-4 - CODATA 2018 - exact since the 2019 SI redefinition
