@@ -6,7 +6,7 @@
     a(T)  = R* ((1-A)/(4 eps))^(1/2) (Teff/T)^2           inverse - the working formula
 
 Everything is numpy-vectorised (meaning it can take arrays as arguments) so any argument may be a scalar or an array as long as
-the shapes broadcast (that is what lets `hz_distance` fill a whole (star x scenario) grid in one call)
+the shapes broadcast (that is what lets `distance_for_temp` fill a whole (star x scenario) grid in one call)
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-__all__ = ["star_radius", "stellar_flux", "atmosphere_factor", "planet_temp", "hz_distance"]
+__all__ = ["star_radius", "stellar_flux", "atmosphere_factor", "planet_temp", "distance_for_temp"]
 
 
 def star_radius(L_watt: ArrayLike, teff: ArrayLike, sigma: float) -> np.ndarray:
@@ -62,13 +62,15 @@ def planet_temp(teff: ArrayLike, r_star_m: ArrayLike, distance_m: ArrayLike, alb
     the 1/4 is geometry - the planet catches starlight on a flat disc of area pi R_p^2
     but radiates from its whole surface 4 pi R_p^2
     """
+    # atmosphere_factor is already the square root of (1-A)/(4 eps) - T_p needs the fourth root, hence the extra ** 0.5
     return (np.asarray(teff) * atmosphere_factor(albedo, epsilon) ** 0.5 * np.sqrt(np.asarray(r_star_m) / np.asarray(distance_m)))
 
 
-def hz_distance(teff: ArrayLike, r_star_m: ArrayLike, target_temp: ArrayLike, albedo: ArrayLike, epsilon: ArrayLike) -> np.ndarray:
+def distance_for_temp(teff: ArrayLike, r_star_m: ArrayLike, target_temp: ArrayLike, albedo: ArrayLike, epsilon: ArrayLike) -> np.ndarray:
     """
     gets T_eff (in kelvin) the star radius R_* (in meters) a wanted temperature target_temp (in kelvin) the albedo A and epsilon
-    returns the distance from the star where the planet would sit at that temperature (in meters)
+    returns the distance from the star where the planet would settle at that temperature (in meters)
+    feed it T_hot to get a_in and T_cold to get a_out
     a(T) = R_* * sqrt((1-A)/(4 eps)) * (T_eff / T)^2
     """
     return (np.asarray(r_star_m) * atmosphere_factor(albedo, epsilon) * (np.asarray(teff) / np.asarray(target_temp)) ** 2)

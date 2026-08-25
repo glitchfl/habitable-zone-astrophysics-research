@@ -18,13 +18,13 @@ EXPECTED_COLUMNS = [
 
 @dataclass
 class Sample:
-    """The retained stars (with everything the model needs already in SI)"""
+    """the stars that survived the cuts - L and R* carried in both SI and solar units"""
 
     source_id: np.ndarray      # str (see note in `load_gaia`)
     spec_class: np.ndarray     # 'F' / 'G' / 'K' / 'M'
     teff: np.ndarray           # K
-    L_sun: np.ndarray          # solar luminosities
-    L_watt: np.ndarray         # W
+    L_lsun: np.ndarray         # L in solar luminosities
+    L_watt: np.ndarray         # L in watts
     r_gaia_rsun: np.ndarray    # Gaia's own radius_flame (for cross-checking)
     r_m: np.ndarray            # our R* (metres)
     r_rsun: np.ndarray         # our R* (solar radii)
@@ -75,9 +75,9 @@ def load_gaia(config: Config) -> Sample:
     is_positive = (teff > 0) & (luminosity_lsun > 0) & (radius_rsun > 0)
     passes_astrometry = (parallax_over_error >= config.min_parallax_over_error) & (ruwe <= config.max_ruwe)
     in_teff_window = (teff >= config.teff_min) & (teff <= config.teff_max)
-    is_main_sequence = radius_rsun <= config.max_radius_rsun
+    passes_radius_cut = radius_rsun <= config.max_radius_rsun
 
-    keep = is_finite & is_positive & passes_astrometry & in_teff_window & is_main_sequence
+    keep = is_finite & is_positive & passes_astrometry & in_teff_window & passes_radius_cut
 
     # each cut counted against everything that survived the previous ones
     cuts = {
@@ -86,23 +86,23 @@ def load_gaia(config: Config) -> Sample:
         "non_positive": int((is_finite & ~is_positive).sum()),
         "astrometry": int((is_finite & is_positive & ~passes_astrometry).sum()),
         "teff_window": int((is_finite & is_positive & passes_astrometry & ~in_teff_window).sum()),
-        "giants": int((is_finite & is_positive & passes_astrometry & in_teff_window & ~is_main_sequence).sum()),
+        "giants": int((is_finite & is_positive & passes_astrometry & in_teff_window & ~passes_radius_cut).sum()),
         "kept": int(keep.sum()),
     }
 
     kept_luminosity_lsun = luminosity_lsun[keep]
     kept_teff = teff[keep]
-    L_watt = kept_luminosity_lsun * config.L_sun
-    r_m = star_radius(L_watt, kept_teff, config.sigma) # our calculation for the star radius
+    L_watt = kept_luminosity_lsun * config.L_sun_watt
+    r_m = star_radius(L_watt, kept_teff, config.sigma)
 
     return Sample(
         source_id=catalogue["SOURCE_ID"].to_numpy()[keep],
         spec_class=catalogue["spectral"].str[0].to_numpy()[keep],
         teff=kept_teff,
-        L_sun=kept_luminosity_lsun,
+        L_lsun=kept_luminosity_lsun,
         L_watt=L_watt,
         r_gaia_rsun=radius_rsun[keep],
         r_m=r_m,
-        r_rsun=r_m / config.R_sun,
+        r_rsun=r_m / config.R_sun_m,
         cuts=cuts,
     )

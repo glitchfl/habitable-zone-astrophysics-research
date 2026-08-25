@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import matplotlib
 
-matplotlib.use("Agg")   # TODO: explain what it is
+matplotlib.use("Agg")   # no gui backend - matplotlib renders straight to png instead of trying to open a window
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,8 +13,8 @@ from analysis import Analysis, CLASSES
 from boundaries import Boundaries
 from config import Config
 from data import Sample
-from model import hz_distance, planet_temp, star_radius
-from scenarios import Scenarios
+from model import distance_for_temp, planet_temp, star_radius
+from scenarios import STRONG_GREENHOUSE, Scenarios
 from sensitivity import Sensitivity
 
 __all__ = ["make_all"]
@@ -47,15 +47,15 @@ class _Sweep:
     other_fixed_value: float        # the other parameter - pinned at its own reference
 
     def atmosphere_arguments(self) -> dict:
-        """what hz_distance expects - the moving parameter as an array, the other as one number"""
+        """what distance_for_temp expects - the moving parameter as an array, the other as one number"""
         other_name = "epsilon" if self.parameter_name == "albedo" else "albedo"
         return {self.parameter_name: self.swept_values, other_name: self.other_fixed_value}
 
 
 def _build_sweeps(config: Config) -> tuple[_Sweep, _Sweep]:
     return (
-        _Sweep("albedo", config.A_sweep, config.A_ref, config.eps_ref),
-        _Sweep("epsilon", config.eps_sweep, config.eps_ref, config.A_ref),
+        _Sweep("albedo", config.albedo_sweep, config.albedo_ref, config.epsilon_ref),
+        _Sweep("epsilon", config.epsilon_sweep, config.epsilon_ref, config.albedo_ref),
     )
 
 
@@ -71,21 +71,21 @@ def _representative_stars(sample: Sample) -> dict[str, int]:
     representatives: dict[str, int] = {}
     for spectral_class in CLASSES:
         in_class = np.flatnonzero(sample.spec_class == spectral_class)
-        median_luminosity = np.median(sample.L_sun[in_class])
-        closest_to_median = np.argmin(np.abs(sample.L_sun[in_class] - median_luminosity))
+        median_luminosity = np.median(sample.L_lsun[in_class])
+        closest_to_median = np.argmin(np.abs(sample.L_lsun[in_class] - median_luminosity))
         representatives[spectral_class] = int(in_class[closest_to_median])
     return representatives
 
 
 def _boundaries_vs_atmosphere(sample: Sample, representatives: dict[str, int], config: Config) -> None:
     """figs 1 and 2 - both habitable zone edges of four representative stars as A and then eps sweep"""
-    albedo_sweep, emissivity_sweep = _build_sweeps(config)
+    albedo_sweep, epsilon_sweep = _build_sweeps(config)
     panels = [
         (albedo_sweep, "albedo $A$",
-         rf"HZ boundaries vs albedo   ($\epsilon = {config.eps_ref:.2f}$ fixed)",
+         rf"HZ boundaries vs albedo   ($\epsilon = {config.epsilon_ref:.2f}$ fixed)",
          "fig1_boundaries_vs_albedo.png"),
-        (emissivity_sweep, r"effective emissivity $\epsilon$   (smaller = stronger greenhouse)",
-         rf"HZ boundaries vs greenhouse   ($A = {config.A_ref:.2f}$ fixed)",
+        (epsilon_sweep, r"effective emissivity $\epsilon$   (smaller = stronger greenhouse)",
+         rf"HZ boundaries vs greenhouse   ($A = {config.albedo_ref:.2f}$ fixed)",
          "fig2_boundaries_vs_greenhouse.png"),
     ]
 
@@ -97,16 +97,11 @@ def _boundaries_vs_atmosphere(sample: Sample, representatives: dict[str, int], c
             colour = CLASS_COLOUR[spectral_class]
             star_teff = sample.teff[star_index]
             star_radius_m = sample.r_m[star_index]
-            inner_edge_au = hz_distance(star_teff, star_radius_m, config.T_hot,
-                                        **atmosphere) / config.AU
-            outer_edge_au = hz_distance(star_teff, star_radius_m, config.T_cold,
-                                        **atmosphere) / config.AU
+            inner_edge_au = distance_for_temp(star_teff, star_radius_m, config.T_hot, **atmosphere) / config.AU
+            outer_edge_au = distance_for_temp(star_teff, star_radius_m, config.T_cold, **atmosphere) / config.AU
 
-            chart.fill_between(sweep.swept_values, inner_edge_au, outer_edge_au,
-                               color=colour, alpha=0.15, linewidth=0)
-            chart.plot(sweep.swept_values, inner_edge_au, "-", color=colour, linewidth=2,
-                       label=rf"{spectral_class}   $T$={star_teff:.0f} K,  "
-                             rf"$L$={sample.L_sun[star_index]:.3f} $L_\odot$")
+            chart.fill_between(sweep.swept_values, inner_edge_au, outer_edge_au, color=colour, alpha=0.15, linewidth=0)
+            chart.plot(sweep.swept_values, inner_edge_au, "-", color=colour, linewidth=2, label=rf"{spectral_class}   $T$={star_teff:.0f} K,  $L$={sample.L_lsun[star_index]:.3f} $L_\odot$")
             chart.plot(sweep.swept_values, outer_edge_au, "--", color=colour, linewidth=2)
 
         chart.axvline(sweep.reference_value, **GUIDE_LINE)
@@ -119,17 +114,17 @@ def _boundaries_vs_atmosphere(sample: Sample, representatives: dict[str, int], c
 
 def _habitable_zone_width_map(sun_radius_m: float, config: Config) -> None:
     """fig 3 - how wide the habitable zone gets over the whole (A, eps) plane for a Sun-like star"""
-    albedo_grid, emissivity_grid = np.meshgrid(config.A_sweep, config.eps_sweep)
-    outer_edge = hz_distance(config.T_sun, sun_radius_m, config.T_cold, albedo_grid, emissivity_grid)
-    inner_edge = hz_distance(config.T_sun, sun_radius_m, config.T_hot, albedo_grid, emissivity_grid)
+    albedo_grid, epsilon_grid = np.meshgrid(config.albedo_sweep, config.epsilon_sweep)
+    outer_edge = distance_for_temp(config.T_sun, sun_radius_m, config.T_cold, albedo_grid, epsilon_grid)
+    inner_edge = distance_for_temp(config.T_sun, sun_radius_m, config.T_hot, albedo_grid, epsilon_grid)
     width_au = (outer_edge - inner_edge) / config.AU
 
     figure, chart = plt.subplots(figsize=(8.5, 5.4))
-    shading = chart.contourf(albedo_grid, emissivity_grid, width_au, levels=24, cmap="viridis")
-    contour_lines = chart.contour(albedo_grid, emissivity_grid, width_au, levels=np.arange(0.2, 1.3, 0.1), colors="black", linewidths=0.7)
+    shading = chart.contourf(albedo_grid, epsilon_grid, width_au, levels=24, cmap="viridis")
+    contour_lines = chart.contour(albedo_grid, epsilon_grid, width_au, levels=np.arange(0.2, 1.3, 0.1), colors="black", linewidths=0.7)
     chart.clabel(contour_lines, fmt="%.1f", fontsize=9)
-    chart.plot(config.A_ref, config.eps_ref, "o", markersize=11, markerfacecolor="white", markeredgecolor="black", markeredgewidth=1.8)
-    chart.annotate("reference", (config.A_ref, config.eps_ref), textcoords="offset points", xytext=(14, 0), verticalalignment="center", fontweight="bold")
+    chart.plot(config.albedo_ref, config.epsilon_ref, "o", markersize=11, markerfacecolor="white", markeredgecolor="black", markeredgewidth=1.8)
+    chart.annotate("reference", (config.albedo_ref, config.epsilon_ref), textcoords="offset points", xytext=(14, 0), verticalalignment="center", fontweight="bold")
     figure.colorbar(shading, ax=chart, label="HZ width  $a_{out} - a_{in}$  [AU]")
     chart.set_xlabel("albedo $A$")
     chart.set_ylabel(r"effective emissivity $\epsilon$")
@@ -140,16 +135,16 @@ def _habitable_zone_width_map(sun_radius_m: float, config: Config) -> None:
 
 def _relative_sensitivity_collapse(sample: Sample, config: Config) -> None:
     """fig 4 - the relative shift is one single curve no matter which star you pick"""
-    albedo_sweep, emissivity_sweep = _build_sweeps(config)
+    albedo_sweep, epsilon_sweep = _build_sweeps(config)
     figure, (left_chart, right_chart) = plt.subplots(1, 2, figsize=(11, 4.6))
     panels = [
         (left_chart, albedo_sweep, "albedo $A$"),
-        (right_chart, emissivity_sweep, r"effective emissivity $\epsilon$"),
+        (right_chart, epsilon_sweep, r"effective emissivity $\epsilon$"),
     ]
 
     for chart, sweep, x_label in panels:
-        swept_distances = hz_distance(sample.teff[:, None], sample.r_m[:, None], config.T_hot, **sweep.atmosphere_arguments())
-        reference_distances = hz_distance(sample.teff, sample.r_m, config.T_hot, config.A_ref, config.eps_ref)[:, None]
+        swept_distances = distance_for_temp(sample.teff[:, None], sample.r_m[:, None], config.T_hot, **sweep.atmosphere_arguments())
+        reference_distances = distance_for_temp(sample.teff, sample.r_m, config.T_hot, config.albedo_ref, config.epsilon_ref)[:, None]
         relative_shift = swept_distances / reference_distances - 1.0
         widest_gap = np.ptp(relative_shift, axis=0).max()
 
@@ -185,8 +180,8 @@ def _habitable_zone_diagram(sample: Sample, boundaries: Boundaries, reference_in
 
 def _shift_teff_vs_luminosity(sample: Sample, scenarios: Scenarios, sensitivity: Sensitivity, config: Config) -> None:
     """fig 6 - the same shifts twice - against Teff they scatter, against sqrt(L) they collapse"""
-    strong_greenhouse = scenarios.names.index("midA_strongGH")
-    inner_edge_shift_au = np.abs(sensitivity.inner_shift_au[:, strong_greenhouse])
+    strong_greenhouse_index = scenarios.names.index(STRONG_GREENHOUSE)
+    inner_edge_shift_au = np.abs(sensitivity.inner_shift_au[:, strong_greenhouse_index])
     near_5000k = np.abs(sample.teff - 5000) < 100
     spread_factor = inner_edge_shift_au[near_5000k].max() / inner_edge_shift_au[near_5000k].min()
 
@@ -195,13 +190,12 @@ def _shift_teff_vs_luminosity(sample: Sample, scenarios: Scenarios, sensitivity:
         in_class = sample.spec_class == spectral_class
         colour = CLASS_COLOUR[spectral_class]
         left_chart.scatter(sample.teff[in_class], inner_edge_shift_au[in_class], s=5, color=colour, alpha=0.5, linewidth=0)
-        right_chart.scatter(np.sqrt(sample.L_sun[in_class]), inner_edge_shift_au[in_class], s=5, color=colour, alpha=0.5, linewidth=0, label=spectral_class)
+        right_chart.scatter(np.sqrt(sample.L_lsun[in_class]), inner_edge_shift_au[in_class], s=5, color=colour, alpha=0.5, linewidth=0, label=spectral_class)
 
     left_chart.set_yscale("log")
     left_chart.set_xlabel(r"$T_{eff}$  [K]")
     left_chart.set_ylabel(r"$|\Delta a_{in}|$  [AU]")
-    left_chart.set_title(f"vs $T_{{eff}}$  -  {spread_factor:.0f}x spread inside "
-                         f"$T_{{eff}}=5000\\pm100$ K", fontsize=10)
+    left_chart.set_title(f"vs $T_{{eff}}$  -  {spread_factor:.0f}x spread inside $T_{{eff}}=5000\\pm100$ K", fontsize=10)
     right_chart.set_xlabel(r"$\sqrt{L / L_\odot}$")
     right_chart.set_ylabel(r"$|\Delta a_{in}|$  [AU]")
     right_chart.set_title("vs $\\sqrt{L}$  -  a single straight line", fontsize=10)
@@ -215,13 +209,10 @@ def _temperature_profiles(scenarios: Scenarios, sun_radius_m: float, config: Con
     distance_grid_m = np.linspace(0.15, 2.6, 600) * config.AU
 
     figure, chart = plt.subplots(figsize=(9.5, 5.4))
-    for scenario_index, (name, albedo, emissivity) in enumerate(scenarios):
-        albedo_level = config.A_levels.index(albedo)
-        greenhouse_level = config.eps_levels.index(emissivity)
-        chart.plot(distance_grid_m / config.AU,
-                   planet_temp(config.T_sun, sun_radius_m, distance_grid_m, albedo, emissivity),
-                   GREENHOUSE_STYLE[greenhouse_level], color=ALBEDO_COLOUR[albedo_level],
-                   linewidth=3.4 if scenario_index == scenarios.reference_index else 1.6, label=name)
+    for scenario_index, (name, albedo, epsilon) in enumerate(scenarios):
+        albedo_index = config.albedo_levels.index(albedo)
+        greenhouse_index = config.epsilon_levels.index(epsilon)
+        chart.plot(distance_grid_m / config.AU, planet_temp(config.T_sun, sun_radius_m, distance_grid_m, albedo, epsilon), GREENHOUSE_STYLE[greenhouse_index], color=ALBEDO_COLOUR[albedo_index], linewidth=3.4 if scenario_index == scenarios.reference_index else 1.6, label=name)
 
     water_lines = [(config.T_hot, "$T_{hot}$ = 373 K"), (config.T_cold, "$T_{cold}$ = 273 K")]
     for temperature, label in water_lines:
@@ -240,20 +231,17 @@ def _temperature_profiles(scenarios: Scenarios, sun_radius_m: float, config: Con
 
 def _scenario_ranking(scenarios: Scenarios, sensitivity: Sensitivity, config: Config) -> None:
     """fig 8 - the nine scenarios sorted by how far they move both edges"""
-    ranking = np.argsort(sensitivity.predicted_shift)
-    shift_percent = 100 * sensitivity.predicted_shift[ranking]
+    ranking = np.argsort(sensitivity.shared_shift_fraction)
+    shift_percent = 100 * sensitivity.shared_shift_fraction[ranking]
     bar_positions = range(len(ranking))
 
     figure, chart = plt.subplots(figsize=(9, 4.8))
-    chart.barh(bar_positions, shift_percent,
-               color=["#d1495b" if shift < 0 else "#0077b6" for shift in shift_percent])
+    chart.barh(bar_positions, shift_percent, color=["#d1495b" if shift < 0 else "#0077b6" for shift in shift_percent])
     chart.set_yticks(bar_positions, [scenarios.names[index] for index in ranking], fontsize=9)
     chart.axvline(0, color="black", linewidth=0.8)
 
     for position, shift in enumerate(shift_percent):
-        chart.annotate(f"{shift:+.1f}%", (shift, position), xytext=(6 if shift >= 0 else -6, 0),
-                       textcoords="offset points", verticalalignment="center",
-                       horizontalalignment="left" if shift >= 0 else "right", fontsize=9)
+        chart.annotate(f"{shift:+.1f}%", (shift, position), xytext=(6 if shift >= 0 else -6, 0), textcoords="offset points", verticalalignment="center", horizontalalignment="left" if shift >= 0 else "right", fontsize=9)
 
     chart.set_xlim(-45, 72)
     chart.set_xlabel(r"$\Delta a\, /\, a_{ref}$   [%]      (identical for every star)")
@@ -263,7 +251,7 @@ def _scenario_ranking(scenarios: Scenarios, sensitivity: Sensitivity, config: Co
 
 def make_all(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, sensitivity: Sensitivity, analysis: Analysis, config: Config) -> None:
     representatives = _representative_stars(sample)
-    sun_radius_m = float(star_radius(config.L_sun, config.T_sun, config.sigma))
+    sun_radius_m = float(star_radius(config.L_sun_watt, config.T_sun, config.sigma))
 
     _boundaries_vs_atmosphere(sample, representatives, config)
     _habitable_zone_width_map(sun_radius_m, config)

@@ -19,11 +19,11 @@ import numpy as np
 from boundaries import Boundaries
 from config import Config
 from data import Sample
-from model import atmosphere_factor, hz_distance, star_radius
+from model import atmosphere_factor, distance_for_temp, star_radius
 from scenarios import Scenarios
 from sensitivity import Sensitivity
 
-CLASSES = "FGKM"
+CLASSES = ("F", "G", "K", "M")
 
 
 @dataclass
@@ -36,15 +36,15 @@ class Analysis:
     loglog_residual: float                  # worst departure from that straight line
     correlation_a_in_with_teff: float       # raw correlation of a_in with Teff - looks like a Teff effect
     correlation_a_in_with_log_L: float      # raw correlation of a_in with log L
-    residual_std_a_in: float                # scatter left in a_in once L is removed - numerically zero
-    residual_std_teff: float                # scatter left in Teff once L is removed
+    log_a_in_residual_std: float            # scatter left in log a_in once log L is removed - numerically zero
+    teff_residual_std: float                # scatter left in Teff once log L is removed (in K)
     twin_count: int                         # how many real Gaia stars share the median luminosity
     twin_luminosity_lsun: float             # that luminosity (in L_sun)
     twin_teff_span: float                   # how far apart those twins Teff spread (in K)
     twin_a_in_spread_fraction: float        # how far apart their a_in spread as a fraction - should be ~0
     probe_teff: np.ndarray                  # three made-up stars given identical L and very different Teff
     probe_a_in: np.ndarray                  # their inner edges (in AU) - should be the same number
-    probe_spread: float                     # the gap between those (in AU) - should be ~0
+    probe_a_in_spread_au: float             # the gap between those inner edges (in AU) - should be ~0
     per_class: dict = field(default_factory=dict)   # medians for F G K M separately
 
 
@@ -58,11 +58,11 @@ def analyze(sample: Sample, boundaries: Boundaries, sensitivity: Sensitivity, sc
     reference_a_in = boundaries.a_in[:, reference_index]
 
     # test 1 - the Teff-free form of a(T) computed straight from L - if Teff really cancels this has to reproduce a_in exactly
-    teff_free_a_in = (np.sqrt(sample.L_watt / (4 * np.pi * config.sigma)) * atmosphere_factor(config.A_ref, config.eps_ref) / config.T_hot**2 / config.AU)
+    teff_free_a_in = (np.sqrt(sample.L_watt / (4 * np.pi * config.sigma)) * atmosphere_factor(config.albedo_ref, config.epsilon_ref) / config.T_hot**2 / config.AU)
     collapse_residual = float(np.abs(teff_free_a_in / reference_a_in - 1).max())
 
     # test 2 - a goes as sqrt(L) so plotting log a_in against log L must give a perfectly straight line of slope 1/2
-    log_luminosity = np.log(sample.L_sun)
+    log_luminosity = np.log(sample.L_lsun)
     log_a_in = np.log(reference_a_in)
     slope, intercept = np.polyfit(log_luminosity, log_a_in, 1)
     log_a_in_residual = log_a_in - (slope * log_luminosity + intercept)
@@ -77,15 +77,15 @@ def analyze(sample: Sample, boundaries: Boundaries, sensitivity: Sensitivity, sc
     # test 4 - real Gaia stars that happen to share a luminosity - a control group taken
     # from the data rather than from the algebra - same L should mean same edges however
     # far apart their Teff are
-    median_luminosity = float(np.median(sample.L_sun))
-    twins = np.abs(sample.L_sun / median_luminosity - 1) < 0.01
+    median_luminosity = float(np.median(sample.L_lsun))
+    twins = np.abs(sample.L_lsun / median_luminosity - 1) < 0.01
     twin_a_in = reference_a_in[twins]
 
     # test 5 - three invented stars given identical L and wildly different Teff - the
     # cleanest possible version of the experiment
     probe_teff = np.array([3200.0, 5772.0, 7400.0])
     probe_a_in = np.array([
-        hz_distance(temperature, star_radius(config.L_sun, temperature, config.sigma), config.T_hot, config.A_ref, config.eps_ref) / config.AU
+        distance_for_temp(temperature, star_radius(config.L_sun_watt, temperature, config.sigma), config.T_hot, config.albedo_ref, config.epsilon_ref) / config.AU
         for temperature in probe_teff
     ])
 
@@ -95,7 +95,7 @@ def analyze(sample: Sample, boundaries: Boundaries, sensitivity: Sensitivity, sc
         per_class[spectral_class] = {
             "star_count": int(in_class.sum()),
             "median_teff": float(np.median(sample.teff[in_class])),
-            "median_L": float(np.median(sample.L_sun[in_class])),
+            "median_L": float(np.median(sample.L_lsun[in_class])),
             "median_a_in": float(np.median(boundaries.a_in[in_class, reference_index])),
             "median_a_out": float(np.median(boundaries.a_out[in_class, reference_index])),
             "median_abs_inner_shift": np.median(np.abs(sensitivity.inner_shift_au[in_class, :]), axis=0),
@@ -107,14 +107,14 @@ def analyze(sample: Sample, boundaries: Boundaries, sensitivity: Sensitivity, sc
         loglog_residual=float(np.abs(log_a_in_residual).max()),
         correlation_a_in_with_teff=float(np.corrcoef(sample.teff, reference_a_in)[0, 1]),
         correlation_a_in_with_log_L=float(np.corrcoef(log_luminosity, log_a_in)[0, 1]),
-        residual_std_a_in=float(log_a_in_residual.std()),
-        residual_std_teff=float(teff_residual.std()),
+        log_a_in_residual_std=float(log_a_in_residual.std()),
+        teff_residual_std=float(teff_residual.std()),
         twin_count=int(twins.sum()),
         twin_luminosity_lsun=median_luminosity,
         twin_teff_span=float(np.ptp(sample.teff[twins])),
         twin_a_in_spread_fraction=float((twin_a_in.max() - twin_a_in.min()) / twin_a_in.mean()),
         probe_teff=probe_teff,
         probe_a_in=probe_a_in,
-        probe_spread=float(np.ptp(probe_a_in)),
+        probe_a_in_spread_au=float(np.ptp(probe_a_in)),
         per_class=per_class,
     )

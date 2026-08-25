@@ -9,8 +9,8 @@ from analysis import Analysis, CLASSES
 from boundaries import Boundaries
 from config import Config
 from data import Sample
-from model import planet_temp, stellar_flux
-from scenarios import Scenarios
+from model import atmosphere_factor, planet_temp, stellar_flux
+from scenarios import STRONG_GREENHOUSE, Scenarios
 from sensitivity import Sensitivity
 
 
@@ -19,21 +19,21 @@ def star_table(sample: Sample) -> pd.DataFrame:
         "source_id": sample.source_id,
         "spec_class": sample.spec_class,
         "teff_K": sample.teff,
-        "L_Lsun": sample.L_sun,
+        "L_Lsun": sample.L_lsun,
         "R_gaia_Rsun": sample.r_gaia_rsun,
         "R_derived_Rsun": sample.r_rsun,
         "R_resid_pct": 100 * sample.radius_residual,
     })
 
 
-def long_table(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, sensitivity: Sensitivity) -> pd.DataFrame:
+def star_scenario_table(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, sensitivity: Sensitivity) -> pd.DataFrame:
     """one row per star per scenario - boundaries and shifts side by side"""
     star_count, scenario_count = boundaries.a_in.shape
     return pd.DataFrame({
         "source_id": np.tile(sample.source_id, scenario_count),
         "spec_class": np.tile(sample.spec_class, scenario_count),
         "teff_K": np.tile(sample.teff, scenario_count),
-        "L_Lsun": np.tile(sample.L_sun, scenario_count),
+        "L_Lsun": np.tile(sample.L_lsun, scenario_count),
         "scenario": np.repeat(scenarios.names, star_count),
         "A": np.repeat(scenarios.albedo, star_count),
         "eps": np.repeat(scenarios.epsilon, star_count),
@@ -54,7 +54,7 @@ def scenario_table(scenarios: Scenarios, boundaries: Boundaries, sensitivity: Se
         "scenario": scenarios.names,
         "A": scenarios.albedo,
         "eps": scenarios.epsilon,
-        "rel_shift_pct": 100 * sensitivity.predicted_shift,
+        "rel_shift_pct": 100 * sensitivity.shared_shift_fraction,
         "med_a_in_AU": np.median(boundaries.a_in, axis=0),
         "med_a_out_AU": np.median(boundaries.a_out, axis=0),
         "med_width_AU": np.median(boundaries.width, axis=0),
@@ -80,7 +80,7 @@ def write_tables(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, s
     config.tables_dir.mkdir(parents=True, exist_ok=True)
     for filename, table, number_format in [
         ("sample_stars.csv", star_table(sample), "%.8g"),
-        ("hz_results.csv", long_table(sample, scenarios, boundaries, sensitivity), "%.8g"),
+        ("hz_results.csv", star_scenario_table(sample, scenarios, boundaries, sensitivity), "%.8g"),
         ("scenario_summary.csv", scenario_table(scenarios, boundaries, sensitivity), "%.8g"),
         ("class_summary.csv", class_table(analysis, scenarios), "%.8g"),
     ]:
@@ -91,7 +91,7 @@ def write_tables(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, s
 def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, sensitivity: Sensitivity, analysis: Analysis, config: Config) -> None:
     """the numbers part 6 has to be written from"""
     reference_index = scenarios.reference_index
-    earth_surface_temp = planet_temp(config.T_sun, config.R_sun, config.AU, config.A_ref, config.eps_ref)
+    earth_surface_temp = planet_temp(config.T_sun, config.R_sun_m, config.AU, config.albedo_ref, config.epsilon_ref)
     divider = "=" * 78
     lines = []
     add_line = lines.append
@@ -115,7 +115,7 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
              f"(R > {config.max_radius_rsun:g} Rsun)")
     add_line(f"  RETAINED                          {cuts['kept']}")
     add_line(f"\n  Teff  {sample.teff.min():.0f} - {sample.teff.max():.0f} K"
-             f"      L  {sample.L_sun.min():.4f} - {sample.L_sun.max():.3f} Lsun")
+             f"      L  {sample.L_lsun.min():.4f} - {sample.L_lsun.max():.3f} Lsun")
     for spectral_class in CLASSES:
         class_stats = analysis.per_class[spectral_class]
         add_line(f"    {spectral_class}  n={class_stats['star_count']:4d}   "
@@ -130,7 +130,7 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
     add_line("  Tp(a) = Teff * ((1-A)/(4 eps))^(1/4) * (R*/a)^(1/2)")
     add_line("  a(T)  = R*   * ((1-A)/(4 eps))^(1/2) * (Teff/T)^2")
     add_line(f"  thresholds  T_hot = {config.T_hot:.2f} K   T_cold = {config.T_cold:.2f} K")
-    add_line(f"  reference   A = {config.A_ref:.2f}   eps = {config.eps_ref:.2f}  "
+    add_line(f"  reference   A = {config.albedo_ref:.2f}   eps = {config.epsilon_ref:.2f}  "
              f"(gives Earth {earth_surface_temp:.1f} K at 1 AU)")
 
     add_line("\n3-4. BOUNDARIES AND SENSITIVITY\n" + "-" * 78)
@@ -141,18 +141,16 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
                  f"{scenarios.epsilon[scenario_index]:5.2f} | "
                  f"{np.median(boundaries.a_in[:, scenario_index]):9.4f} "
                  f"{np.median(boundaries.a_out[:, scenario_index]):9.4f} | "
-                 f"{100*sensitivity.predicted_shift[scenario_index]:+9.2f}% | "
+                 f"{100*sensitivity.shared_shift_fraction[scenario_index]:+9.2f}% | "
                  f"{np.median(np.abs(sensitivity.inner_shift_au[:, scenario_index])):9.4f} AU")
 
-    largest_shift = int(np.argmax(np.abs(sensitivity.predicted_shift)))
+    largest_shift_index = int(np.argmax(np.abs(sensitivity.shared_shift_fraction)))
     # the reference sits at exactly 0% - park it out of reach so argmin finds a real scenario
-    shifts_beside_reference = np.abs(sensitivity.predicted_shift).copy()
+    shifts_beside_reference = np.abs(sensitivity.shared_shift_fraction).copy()
     shifts_beside_reference[reference_index] = np.inf
-    smallest_shift = int(np.argmin(shifts_beside_reference))
-    add_line(f"\n  largest shift : {scenarios.names[largest_shift]}  "
-             f"{100*sensitivity.predicted_shift[largest_shift]:+.2f} %")
-    add_line(f"  smallest shift: {scenarios.names[smallest_shift]}  "
-             f"{100*sensitivity.predicted_shift[smallest_shift]:+.2f} %")
+    smallest_shift_index = int(np.argmin(shifts_beside_reference))
+    add_line(f"\n  largest shift : {scenarios.names[largest_shift_index]}  {100*sensitivity.shared_shift_fraction[largest_shift_index]:+.2f} %")
+    add_line(f"  smallest shift: {scenarios.names[smallest_shift_index]}  {100*sensitivity.shared_shift_fraction[smallest_shift_index]:+.2f} %")
     add_line("\n  a_in and a_out always move by the SAME percentage, so the zone dilates without")
     add_line(f"  changing shape: a_out/a_in = (T_hot/T_cold)^2 = "
              f"{(config.T_hot/config.T_cold)**2:.6f} for every star and scenario.")
@@ -170,10 +168,10 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
              f"(exact 1/2, max resid {analysis.loglog_residual:.1e})")
     add_line("    median |da_in| for the strong-greenhouse scenario, by class:")
 
-    strong_greenhouse = scenarios.names.index("midA_strongGH")
-    m_dwarf_shift = analysis.per_class["M"]["median_abs_inner_shift"][strong_greenhouse]
+    strong_greenhouse_index = scenarios.names.index(STRONG_GREENHOUSE)
+    m_dwarf_shift = analysis.per_class["M"]["median_abs_inner_shift"][strong_greenhouse_index]
     for spectral_class in CLASSES:
-        class_shift = analysis.per_class[spectral_class]["median_abs_inner_shift"][strong_greenhouse]
+        class_shift = analysis.per_class[spectral_class]["median_abs_inner_shift"][strong_greenhouse_index]
         add_line(f"      {spectral_class}  {class_shift:.4f} AU   "
                  f"({class_shift/m_dwarf_shift:.1f}x the M-dwarf value)")
 
@@ -182,31 +180,31 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
     add_line(f"    corr(a_in, Teff) over the sample      {analysis.correlation_a_in_with_teff:+.4f}"
              "      <- looks like a real trend")
     add_line(f"    corr(log a_in, log L)                 {analysis.correlation_a_in_with_log_L:+.8f}")
-    add_line(f"    std of log a_in after removing log L   {analysis.residual_std_a_in:.2e}"
+    add_line(f"    std of log a_in after removing log L   {analysis.log_a_in_residual_std:.2e}"
              "   <- nothing left for Teff")
-    add_line(f"    std of Teff after removing log L       {analysis.residual_std_teff:.1f} K"
+    add_line(f"    std of Teff after removing log L       {analysis.teff_residual_std:.1f} K"
              "      <- yet Teff varies freely")
     add_line(f"    {analysis.twin_count} real Gaia stars within 1% in L span "
              f"{analysis.twin_teff_span:.0f} K in Teff,")
     add_line(f"      and their a_in agree to {100*analysis.twin_a_in_spread_fraction:.2f}% - "
              "the 1% L spread, not the Teff spread.")
     add_line(f"    control: L fixed at 1 Lsun, Teff {probe_temps} K"
-             f" -> a_in identical to {analysis.probe_spread:.1e} AU")
+             f" -> a_in identical to {analysis.probe_a_in_spread_au:.1e} AU")
 
-    reference_factor = np.sqrt((1 - config.A_ref) / (4 * config.eps_ref))
-    strong_greenhouse_factor = np.sqrt((1 - config.A_ref) / (4 * 0.30))
-    high_albedo_factor = np.sqrt((1 - 0.50) / (4 * config.eps_ref))
-    f_star_shift = analysis.per_class["F"]["median_abs_inner_shift"][strong_greenhouse]
+    strongest_greenhouse = min(config.epsilon_levels)
+    highest_albedo = max(config.albedo_levels)
+    reference_factor = float(atmosphere_factor(config.albedo_ref, config.epsilon_ref))
+    strong_greenhouse_factor = float(atmosphere_factor(config.albedo_ref, strongest_greenhouse))
+    high_albedo_factor = float(atmosphere_factor(highest_albedo, config.epsilon_ref))
+    f_star_shift = analysis.per_class["F"]["median_abs_inner_shift"][strong_greenhouse_index]
 
     add_line("\n6. WHAT THIS MEANS, AND WHERE IT STOPS\n" + "-" * 78)
     add_line("  * A and eps move both boundaries by one common factor sqrt((1-A)/(4 eps)).")
     add_line(f"    Over the scenario set that factor runs from "
-             f"{100*sensitivity.predicted_shift.min():+.0f}%"
-             f" to {100*sensitivity.predicted_shift.max():+.0f}% of the reference.")
-    add_line(f"  * eps is the stronger lever: dropping eps 0.60 -> 0.30 gives "
-             f"{100*(strong_greenhouse_factor/reference_factor-1):+.1f}%, while")
-    add_line(f"    raising A 0.30 -> 0.50 gives only "
-             f"{100*(high_albedo_factor/reference_factor-1):+.1f}%.")
+             f"{100*sensitivity.shared_shift_fraction.min():+.0f}%"
+             f" to {100*sensitivity.shared_shift_fraction.max():+.0f}% of the reference.")
+    add_line(f"  * eps is the stronger lever: dropping eps {config.epsilon_ref:.2f} -> {strongest_greenhouse:.2f} gives {100*(strong_greenhouse_factor/reference_factor-1):+.1f}%, while")
+    add_line(f"    raising A {config.albedo_ref:.2f} -> {highest_albedo:.2f} gives only {100*(high_albedo_factor/reference_factor-1):+.1f}%.")
     add_line("  * Answer to the research question: the sensitivity of the boundaries to A and eps")
     add_line("    does NOT depend on the type of star in relative terms. In absolute terms a bright")
     add_line(f"    F star's boundary moves ~{f_star_shift/m_dwarf_shift:.0f}x further"
@@ -219,9 +217,10 @@ def write_summary(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, 
     add_line("    spectrally resolved model WOULD produce a Teff dependence. The clean null result")
     add_line("    here is a statement about the model, and that is what makes it a useful baseline.")
 
-    earth_equilibrium_temp = planet_temp(config.T_sun, config.R_sun, config.AU, 0.30, 1.00)
+    # same reference albedo but eps = 1 - a bare blackbody Earth with no greenhouse at all
+    earth_equilibrium_temp = planet_temp(config.T_sun, config.R_sun_m, config.AU, config.albedo_ref, 1.0)
     add_line("\n7. VERIFICATION\n" + "-" * 78)
-    add_line(f"  external anchors: solar constant {stellar_flux(config.L_sun, config.AU):.1f} W/m2"
+    add_line(f"  external anchors: solar constant {stellar_flux(config.L_sun_watt, config.AU):.1f} W/m2"
              f" | Earth eq. temp {earth_equilibrium_temp:.1f} K"
              f" | Earth surface {earth_surface_temp:.1f} K")
     add_line(divider)

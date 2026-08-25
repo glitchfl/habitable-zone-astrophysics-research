@@ -18,8 +18,8 @@ class Sensitivity:
     inner_shift_fraction: np.ndarray    # fraction of the reference boundary
     outer_shift_fraction: np.ndarray
     width_shift_fraction: np.ndarray
-    predicted_shift: np.ndarray         # (n_scenarios,) - the analytic value
-    star_to_star_spread: np.ndarray     # (n_scenarios,) - actual star-to-star spread
+    shared_shift_fraction: np.ndarray   # (n_scenarios,) - the one relative shift every star agrees on, straight from the algebra
+    star_to_star_spread: np.ndarray     # (n_scenarios,) - how far the per-star fractions actually drift apart
 
 
 def sensitivity_metrics(boundaries: Boundaries, scenarios: Scenarios) -> Sensitivity:
@@ -37,6 +37,7 @@ def sensitivity_metrics(boundaries: Boundaries, scenarios: Scenarios) -> Sensiti
     things to each
     """
     reference_index = scenarios.reference_index
+    # the list index keeps the result a (n_stars, 1) column so it broadcasts against the full table
     reference_inner_edge = boundaries.a_in[:, [reference_index]]
     reference_outer_edge = boundaries.a_out[:, [reference_index]]
     reference_width = boundaries.width[:, [reference_index]]
@@ -48,9 +49,9 @@ def sensitivity_metrics(boundaries: Boundaries, scenarios: Scenarios) -> Sensiti
     inner_shift_fraction = inner_shift_au / reference_inner_edge
     outer_shift_fraction = outer_shift_au / reference_outer_edge
 
-    # A and eps reach a(T) only through atmosphere_factor - so the relative shift is one number
+    # A and eps reach a(T) only through scenarios.atmosphere_factor - so the relative shift is one number
     # per scenario that every star in the sample shares
-    predicted_shift = boundaries.atmosphere_factor / boundaries.atmosphere_factor[reference_index] - 1.0
+    shared_shift_fraction = scenarios.atmosphere_factor / scenarios.atmosphere_factor[reference_index] - 1.0
 
     return Sensitivity(
         inner_shift_au=inner_shift_au,
@@ -59,6 +60,6 @@ def sensitivity_metrics(boundaries: Boundaries, scenarios: Scenarios) -> Sensiti
         inner_shift_fraction=inner_shift_fraction,
         outer_shift_fraction=outer_shift_fraction,
         width_shift_fraction=width_shift_au / reference_width,
-        predicted_shift=predicted_shift,
+        shared_shift_fraction=shared_shift_fraction,
         star_to_star_spread=inner_shift_fraction.max(axis=0) - inner_shift_fraction.min(axis=0),
     )
