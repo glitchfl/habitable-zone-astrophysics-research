@@ -1,6 +1,6 @@
 ==============================================================================
 HABITABLE ZONE SENSITIVITY TO ALBEDO AND GREENHOUSE PARAMETER
-Gaia DR3 main-sequence sample - Python implementation - 2026-08-25 11:20
+Gaia DR3 main-sequence sample - Python implementation - 2026-08-25 11:40
 ==============================================================================
 
 1. SAMPLE

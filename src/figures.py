@@ -68,7 +68,7 @@ def _save(figure, config: Config, filename: str) -> None:
 
 def _representative_stars(sample: Sample) -> dict[str, int]:
     """one star per class - the one sitting at that class's median luminosity"""
-    representatives = {}
+    representatives: dict[str, int] = {}
     for spectral_class in CLASSES:
         in_class = np.flatnonzero(sample.spec_class == spectral_class)
         median_luminosity = np.median(sample.L_sun[in_class])
@@ -263,7 +263,7 @@ def _scenario_ranking(scenarios: Scenarios, sensitivity: Sensitivity, config: Co
 
 def make_all(sample: Sample, scenarios: Scenarios, boundaries: Boundaries, sensitivity: Sensitivity, analysis: Analysis, config: Config) -> None:
     representatives = _representative_stars(sample)
-    sun_radius_m = star_radius(config.L_sun, config.T_sun, config.sigma)
+    sun_radius_m = float(star_radius(config.L_sun, config.T_sun, config.sigma))
 
     _boundaries_vs_atmosphere(sample, representatives, config)
     _habitable_zone_width_map(sun_radius_m, config)
