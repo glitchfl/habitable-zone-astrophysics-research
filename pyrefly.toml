@@ -1,0 +1,2 @@
+# votable_to_csv.py imports the pipeline modules from src/ - without this the editor cannot resolve them
+search-path = ["src", "gaia"]
